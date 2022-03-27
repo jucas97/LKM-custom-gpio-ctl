@@ -23,7 +23,11 @@
 #include "gpio_ctl.h"
 #include "gpio_ctl_shared.h"
 
-#define cdrv_log(level, msg, ...) printk(KERN_##level "gpio_ctl driver: " msg , ##__VA_ARGS__)
+#ifdef GPIO_CTL_DEBUG
+#define CDRV_LOG(level, msg, ...) printk(KERN_##level "gpio_ctl driver: " msg , ##__VA_ARGS__)
+#else
+#define CDRV_LOG(level, msg, ...)
+#endif /** GPIO_CTL_DEBUG */
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Joel Pinto");
@@ -56,7 +60,7 @@ static struct gpio_ctl_priv gpio_priv;
  */
 static int gpio_ctl_open(struct inode *inode, struct file *file)
 {
-    cdrv_log(INFO, "open\n");
+    CDRV_LOG(INFO, "open\n");
     return 0;
 }
 
@@ -67,7 +71,7 @@ static int gpio_ctl_open(struct inode *inode, struct file *file)
  */
 static int gpio_ctl_release(struct inode *inode, struct file *file)
 {
-    cdrv_log(INFO, "release\n");
+    CDRV_LOG(INFO, "release\n");
     return 0;
 }
 
@@ -82,7 +86,7 @@ static int gpio_ctl_release(struct inode *inode, struct file *file)
  */
 static ssize_t gpio_ctl_read(struct file *file, char __user *buffer, size_t len, loff_t *offset)
 {
-    cdrv_log(INFO, "read\n");
+    CDRV_LOG(INFO, "read\n");
     return 0;
 }
 
@@ -97,7 +101,7 @@ static ssize_t gpio_ctl_read(struct file *file, char __user *buffer, size_t len,
  */
 static ssize_t gpio_ctl_write(struct file *file, const char __user *buffer, size_t len, loff_t *offset)
 {
-    cdrv_log(INFO, "write\n");
+    CDRV_LOG(INFO, "write\n");
     return 1;
 }
 
@@ -123,20 +127,20 @@ static int __init gpio_ctl_init(void)
 {
     int ret;
 
-    cdrv_log(INFO,"Loading module \n");
+    CDRV_LOG(INFO,"Loading module \n");
 
     /** Static device number allocation.
      * @TODO - should be updated to dynamic allocation in the future.*/
     gpio_priv.my_dev_num = MKDEV(GPIO_CTL_MAJOR, GPIO_CTL_MINOR);
     ret = register_chrdev_region(gpio_priv.my_dev_num, GPIO_CTL_DEV_COUNT, GPIO_CTL_NAME);
     if (ret < 0) {
-        cdrv_log(WARNING, "Failed to allocate device number, error code %d\n", ret);
+        CDRV_LOG(WARNING, "Failed to allocate device number, error code %d\n", ret);
         goto failed_register_chrdev;
     }
 
     gpio_priv.my_cdev = cdev_alloc();
     if (gpio_priv.my_cdev == NULL) {
-        cdrv_log(WARNING, "Failed to allocate cdev structure\n");
+        CDRV_LOG(WARNING, "Failed to allocate cdev structure\n");
         ret = -ENOMEM;
         goto failed_cdev_alloc;
     }
@@ -146,21 +150,21 @@ static int __init gpio_ctl_init(void)
     /* Add c dev node to the system - /dev */
     ret = cdev_add(gpio_priv.my_cdev, gpio_priv.my_dev_num, GPIO_CTL_DEV_COUNT);
     if (ret < 0) {
-        cdrv_log(WARNING, "Failed to propagate the char dev to the system, error code %d\n", ret);
+        CDRV_LOG(WARNING, "Failed to propagate the char dev to the system, error code %d\n", ret);
         goto failed_cdev_add;
     }
 
     gpio_priv.my_class = class_create(THIS_MODULE, GPIO_CTL_NAME);
     if (IS_ERR(gpio_priv.my_class)) {
         ret = (int) PTR_ERR(gpio_priv.my_class);
-        cdrv_log(WARNING, "Failed to create class, error %d\n", ret);
+        CDRV_LOG(WARNING, "Failed to create class, error %d\n", ret);
         goto failed_cdev_add;
     }
 
     gpio_priv.my_device = device_create(gpio_priv.my_class, NULL, gpio_priv.my_dev_num, NULL, GPIO_CTL_NAME);
     if (IS_ERR(gpio_priv.my_device)) {
         ret = (int) PTR_ERR(gpio_priv.my_device);
-        cdrv_log(WARNING, "Failed to create device, error code %d \n", ret);
+        CDRV_LOG(WARNING, "Failed to create device, error code %d \n", ret);
         goto failed_device_create;
     }
 
@@ -182,8 +186,7 @@ failed_register_chrdev:
  */
 static void __exit gpio_init_exit(void)
 {
-    cdrv_log(INFO, "Unloading gpio_ctl module\n");
-
+    CDRV_LOG(INFO, "Unloading gpio_ctl module\n");
     device_destroy(gpio_priv.my_class, gpio_priv.my_dev_num);
     class_destroy(gpio_priv.my_class);
     cdev_del(gpio_priv.my_cdev);
