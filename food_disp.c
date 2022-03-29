@@ -17,6 +17,9 @@
 #include <linux/slab.h>
 #include <linux/gpio/consumer.h>
 #include <linux/gpio.h>
+#include <linux/ioctl.h>
+#include <linux/uaccess.h>
+#include <linux/pwm.h>
 /**
  * Kernel log level
  * #include <linux/kern_levels.h>
@@ -42,6 +45,8 @@ static ssize_t food_disp_write(struct file *file, const char __user *buffer, siz
 static long food_disp_ioctl(struct file *file, unsigned int cmd, unsigned long param);
 static int create_gpios_desc(void);
 static void drop_gpios(void);
+static int request_pwm_channel(int);
+static void release_pwm(void);
 
 // C tag struct initialization
 struct file_operations my_fops = {
@@ -121,7 +126,35 @@ static ssize_t food_disp_write(struct file *file, const char __user *buffer, siz
  */
 static long food_disp_ioctl(struct file *file, unsigned int cmd, unsigned long param)
 {
-    return 0;
+    int ret;
+
+    if (_IOC_TYPE(cmd) != FOOD_DISP_MAJOR) {
+        CDRV_LOG(WARNING, "Unable to perform ioctl operation, wrong type\n");
+        return -EINVAL;
+    }
+
+    switch (cmd)
+    {
+    case FOOD_DISP_IOCTL_PWM_CHANNEL:
+    {
+        int pwm_channel;
+
+        if (access_ok((int *)param, sizeof(int)) == 0) {
+            CDRV_LOG(WARNING, "Invalid memory block\n");
+            return -EFAULT;
+        }
+        if (copy_from_user(&pwm_channel, (void *) param, sizeof(int)) != 0) {
+            CDRV_LOG(WARNING, "Failure copying data from user-space\n");
+            return -EFAULT;
+        }
+        ret = request_pwm_channel(pwm_channel);
+        break;
+    }
+    default:
+        break;
+    }
+
+    return ret;
 }
 
 /**
@@ -200,6 +233,7 @@ failed_register_chrdev:
 static void __exit food_disp_exit(void)
 {
     CDRV_LOG(INFO, "Unloading food_disp module\n");
+    release_pwm();
     drop_gpios();
     device_destroy(my_priv.my_class, my_priv.my_dev_num);
     class_destroy(my_priv.my_class);
@@ -267,6 +301,39 @@ static void drop_gpios(void)
         pin = desc_to_gpio(my_priv.pins_desc[i]);
         my_priv.pins_desc[i] = NULL;
         gpio_free(pin);
+    }
+}
+
+static int request_pwm_channel(int pwm_channel)
+{
+    int ret;
+
+    if (pwm_channel >= PWM_MAX_CHANNELS) {
+        return -ENODEV;
+    }
+
+    if (my_priv.pwm[pwm_channel] != NULL) {
+        return -EEXIST;
+    }
+
+    my_priv.pwm[pwm_channel] = pwm_request(pwm_channel, NULL);
+    if (IS_ERR(my_priv.pwm[pwm_channel])) {
+        CDRV_LOG(WARNING, "Failure requesting pwm channel %ld\n", PTR_ERR(my_priv.pwm[pwm_channel]));
+        ret = (int) PTR_ERR(my_priv.pwm[pwm_channel]);
+        my_priv.pwm[pwm_channel] = NULL;
+    }
+
+    return 0;
+}
+
+static void release_pwm(void)
+{
+    int i;
+
+    for (i=0; i < PWM_MAX_CHANNELS; ++i) {
+        if (my_priv.pwm[i] != NULL) {
+            pwm_put(my_priv.pwm[i]);
+        }
     }
 }
 
