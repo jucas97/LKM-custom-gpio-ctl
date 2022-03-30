@@ -7,6 +7,7 @@
 
 #define FOOD_DISP_IOCTL_PWM_CHANNEL       _IOWR(FOOD_DISP_MAJOR, 1, int *)
 #define FOOD_DISP_IOCTL_PWM_APPLY_STATE   _IOWR(FOOD_DISP_MAJOR, 2, struct pwm_config *)
+#define FOOD_DISP_IOCTL_PWM_RELEASE       _IOWR(FOOD_DISP_MAJOR, 3, struct pwm_config *)
 
 struct pwm_config {
     int channel;

@@ -47,6 +47,7 @@ static int create_gpios_desc(void);
 static void drop_gpios(void);
 static int request_pwm_channel(int);
 static void release_pwm(void);
+static int apply_pwm_state(const struct pwm_config);
 
 // C tag struct initialization
 struct file_operations my_fops = {
@@ -166,12 +167,29 @@ static long food_disp_ioctl(struct file *file, unsigned int cmd, unsigned long p
             ret = -EFAULT;
             break;
         }
-        if (my_priv.pwm[config.channel] == NULL) {
-            CDRV_LOG(WARNING, "PWM Device not initialized\n");
-            ret = -ENODEV;
+        ret = apply_pwm_state(config);
+        break;
+    }
+    case FOOD_DISP_IOCTL_PWM_RELEASE:
+    {
+        struct pwm_config config;
+
+        if (access_ok((struct pwm_config *) param, sizeof(struct pwm_config)) != 0) {
+            CDRV_LOG(WARNING, "Invalid memory block\n");
+            ret = -EFAULT;
             break;
         }
-        ret = pwm_apply_state(my_priv.pwm[config.channel], &config.state);
+        if (copy_from_user(&config, (void *) param, sizeof(struct pwm_config)) != 0) {
+            CDRV_LOG(WARNING, "Failure copying data from user-space\n");
+            ret = -EFAULT;
+            break;
+        }
+        ret = apply_pwm_state(config);
+        if (ret == 0) {
+            pwm_put(my_priv.pwm[config.channel]);
+        } else {
+            CDRV_LOG(WARNING, "Can not free pwm\n");
+        }
         break;
     }
     default:
@@ -359,6 +377,16 @@ static void release_pwm(void)
             pwm_put(my_priv.pwm[i]);
         }
     }
+}
+
+static int apply_pwm_state(const struct pwm_config config)
+{
+    if (my_priv.pwm[config.channel] == NULL) {
+        CDRV_LOG(WARNING, "PWM Device not initialized\n");
+        return -ENODEV;
+    }
+
+    return pwm_apply_state(my_priv.pwm[config.channel], &config.state);
 }
 
 module_init(food_disp_init);
