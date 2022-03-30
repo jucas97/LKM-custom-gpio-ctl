@@ -13,5 +13,5 @@ struct food_disp_priv {
     struct class *my_class;
     struct device *my_device;
     struct gpio_desc *pins_desc[2];
-    struct pwm_device *pwm[2];
+    struct pwm_device *pwm[PWM_MAX_CHANNELS];
 };

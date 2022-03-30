@@ -141,13 +141,37 @@ static long food_disp_ioctl(struct file *file, unsigned int cmd, unsigned long p
 
         if (access_ok((int *)param, sizeof(int)) == 0) {
             CDRV_LOG(WARNING, "Invalid memory block\n");
-            return -EFAULT;
+            ret = -EFAULT;
+            break;
         }
         if (copy_from_user(&pwm_channel, (void *) param, sizeof(int)) != 0) {
             CDRV_LOG(WARNING, "Failure copying data from user-space\n");
-            return -EFAULT;
+            ret = -EFAULT;
+            break;
         }
         ret = request_pwm_channel(pwm_channel);
+        break;
+    }
+    case FOOD_DISP_IOCTL_PWM_APPLY_STATE:
+    {
+        struct pwm_config config;
+
+        if (access_ok((struct pwm_config *) param, sizeof(struct pwm_config)) != 0) {
+            CDRV_LOG(WARNING, "Invalid memory block\n");
+            ret = -EFAULT;
+            break;
+        }
+        if (copy_from_user(&config, (void *) param, sizeof(struct pwm_config)) != 0) {
+            CDRV_LOG(WARNING, "Failure copying data from user-space\n");
+            ret = -EFAULT;
+            break;
+        }
+        if (my_priv.pwm[config.channel] == NULL) {
+            CDRV_LOG(WARNING, "PWM Device not initialized\n");
+            ret = -ENODEV;
+            break;
+        }
+        ret = pwm_apply_state(my_priv.pwm[config.channel], &config.state);
         break;
     }
     default:
@@ -323,14 +347,14 @@ static int request_pwm_channel(int pwm_channel)
         my_priv.pwm[pwm_channel] = NULL;
     }
 
-    return 0;
+    return ret;
 }
 
 static void release_pwm(void)
 {
     int i;
 
-    for (i=0; i < PWM_MAX_CHANNELS; ++i) {
+    for (i = 0; i < PWM_MAX_CHANNELS; ++i) {
         if (my_priv.pwm[i] != NULL) {
             pwm_put(my_priv.pwm[i]);
         }
