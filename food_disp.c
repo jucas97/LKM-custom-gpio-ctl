@@ -348,7 +348,7 @@ static void drop_gpios(void)
 
 static int request_pwm_channel(int pwm_channel)
 {
-    int ret;
+    int ret = 0;
 
     if (pwm_channel >= PWM_MAX_CHANNELS) {
         return -ENODEV;
@@ -386,7 +386,14 @@ static int apply_pwm_state(const struct pwm_config config)
         return -ENODEV;
     }
 
-    return pwm_apply_state(my_priv.pwm[config.channel], &config.state);
+    struct pwm_state new_state = {
+        .period = config.period,
+        .duty_cycle = config.duty_cycle,
+        .polarity = PWM_POLARITY_NORMAL,
+        .enabled = config.enabled,
+    };
+
+    return pwm_apply_state(my_priv.pwm[config.channel], &new_state);
 }
 
 module_init(food_disp_init);

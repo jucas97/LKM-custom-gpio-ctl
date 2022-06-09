@@ -10,6 +10,8 @@
 #define FOOD_DISP_IOCTL_PWM_RELEASE       _IOWR(FOOD_DISP_MAJOR, 3, struct pwm_config *)
 
 struct pwm_config {
+    uint64_t period;
+    uint64_t duty_cycle;
     int channel;
-    struct pwm_state state;
+    bool enabled;
 };
