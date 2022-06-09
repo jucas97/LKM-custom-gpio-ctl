@@ -1,4 +1,4 @@
-obj-m := gpio_ctl.o
+obj-m := food_disp.o
 
 SRC := $(shell pwd)
 
