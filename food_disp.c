@@ -157,7 +157,7 @@ static long food_disp_ioctl(struct file *file, unsigned int cmd, unsigned long p
     {
         struct pwm_config config;
 
-        if (access_ok((struct pwm_config *) param, sizeof(struct pwm_config)) != 0) {
+        if (access_ok((struct pwm_config *) param, sizeof(struct pwm_config)) == 0) {
             CDRV_LOG(WARNING, "Invalid memory block\n");
             ret = -EFAULT;
             break;
