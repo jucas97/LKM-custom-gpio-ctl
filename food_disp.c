@@ -374,6 +374,12 @@ static void release_pwm(void)
 
     for (i = 0; i < PWM_MAX_CHANNELS; ++i) {
         if (my_priv.pwm[i] != NULL) {
+            if (my_priv.pwm[i]->state.enabled) {
+                struct pwm_state new_state = my_priv.pwm[i]->state;
+                new_state.enabled = false;
+                if (pwm_apply_state(my_priv.pwm[i], &new_state) != 0)
+                    CDRV_LOG(WARNING, "Error while appllying state \n");
+            }
             pwm_put(my_priv.pwm[i]);
         }
     }
